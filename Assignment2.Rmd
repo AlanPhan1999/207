@@ -1,0 +1,251 @@
+---
+title: "STA 207: Assignment II"
+author: "(Your name and student ID)"
+output: html_document
+---
+***
+
+**Instructions** You may adapt the code in the course materials or any sources (e.g., the Internet, classmates, friends). In fact, you can craft solutions for almost all questions from the course materials with minor modifications. However, you need to write up your own solutions and acknowledge all sources that you have cited in the Acknowledgement section. 
+
+Failing to acknowledge any non-original efforts will be counted as plagiarism. This incidence will be reported to the Student Judicial Affairs. 
+
+***
+
+A consulting firm is investigating the relationship between wages and some demographic factors. The file `Wage.csv` contains three columns, which are 
+
+  - `wage`, the wage of the subject,
+  - `ethnicity`, the ethnicity of the subject,
+  - and `occupation`, the occupation of the subject. 
+
+
+```{r,echo=T,results=F,message=F}
+Wage=read.csv('Wage.csv');
+library(gplots)
+library(lme4)
+attach(Wage)
+```
+
+***
+```{r}
+length(unique(Wage$ethnicity))
+length(unique(Wage$occupation))
+
+```
+
+(1) Write down a two-way ANOVA model for this data. For consistency, choose the letters from $\{Y,\alpha, \beta, \mu, \epsilon\}$ and use the factor-effect form.
+
+
+\begin{align}
+
+  &Y_{ijk} = \mu_{..} + \alpha_i + \beta_j + (\alpha\beta)_{ij} + \epsilon_{ijk} \\ \\
+  &\text{Where } \alpha_i \text{ represents the fixed effect ethnicity has on wage } i=(1-3) \\
+  &\beta_j \text{ represents the fixed effect occupation has on wage } j=(1-6) \\
+  &\text{k represents an individual sample within the ij treatment group} \\
+
+\end{align}
+
+In addition we have the following constraints and assumptions for the model:
+
+\begin{align}
+
+  &\epsilon_{ijk} \overset{\mathrm{iid}}{\sim} N(0,1) \\
+  &\sum_{i=1}^{3}\alpha_i = \sum_{j=1}^{6}\beta_j = 0 \\
+  &\sum_{i=1}^{3}(\alpha\beta)_{ij} = 0  \: \forall{j} \\
+  &\sum_{j=1}^{6}(\alpha\beta)_{ij} = 0  \: \forall{i}
+
+\end{align}
+
+***
+
+(2) Obtain the main effects plots and the interaction plot. Summarize your findings.
+	
+```{r}
+
+# Main effect plot for Ethnicity
+plotmeans(wage~ethnicity,data=Wage,xlab="Ethnicity",ylab="Wage",
+          main="Main  effect, ethnicity",cex.lab=1.5) 
+
+```
+\ Looking at the main effect plot for ethnicity, it shows that there is a difference in mean between the three different ethnicities. However, the Confidence interval provided by the three ethnicities shows that given the data the true mean may intersect between the three ethnicities and therefore is difficult to conclude if ethnicities has an effect on Wage. In addition to these findings some other interesting bits of information can be found, for example the fact that there is an overwhelming amount of caucasians in the study compared to both hispanic and other ethnicities. It is very important that if a better conclusion wants to be drawn, hispanic and other ethnicities are better represented in the sample as having a similar number of samples (~400) would most likely lower the standard error for both levels and have a more solid conclusion.
+
+```{r}
+# Main effect plot for Occupation
+plotmeans(wage~occupation ,data=Wage,xlab="Occupation",ylab="Wage", 
+          main="Main  effect, occupation",cex.lab=1.5) 
+
+```
+The plot shows that both management and technical occupations have higher average wage but given that both confidence intervals intersect, it is not possible to conclude that there is a single occupation which has the highest average wage. However, it can be concluded that both technical and management roles have a higher wage on average compared to the other occupations in the study (office, sales, service, and worker). This may indicate that these roles are a better choice should a person want to have a higher wage on average. However, it should be noted that sales and management have a smaller sample compared to the other occupations (38 and 55 respectively). It may be prudent to include more samples of management and sales to have better insight on whether management may have a higher wage on average than the other occupations.
+```{r}
+#Interaction plot
+interaction.plot(Wage$ethnicity, Wage$occupation, Wage$wage
+                ,cex.lab=1.5,ylab="wage",xlab='ethnicty')
+```
+Looking at the interaction plot, it seems that most of plots follow a similar distribution except for one. This means that interaction most likely has an effect on the wage and should be considered. This means that both occupation and ethnicity should not be looked at individually but also together as well. \
+***
+	
+(3) Fit the ANOVA model described in Part 1. Obtain the ANOVA table and state your conclusions. Are the findings here consistent with your initial assessments from Part 2?
+
+```{r}
+library(car)
+#Given that interaction seems to be significant it may be prudent to include it
+(t1=Anova(lm(wage~ethnicity*occupation, data=Wage, 
+            contrasts=list(ethnicity=contr.sum, occupation=contr.sum)), type=3))
+
+```
+Looking at the anova table for a type III test which looks at ethnicity, occupation, as well as their interaction, some observations can be made. Firstly, that even though the graph for the interaction plot indicates that an interaction may be occurring given that the slope for the service line is drastically different than the slope of the other occupations. However, the ANOVA table indicates that interaction is not significant. However, even though the anova table determines it to be not significant, there may still be an effect that interaction has on wage that even if it may not be significant is still there and should be observed. In addition, the mean effect plot for occupation shows that a difference in average wage exists which is consistent with ANOVA table which also shows that occupation is significant in determining average wage. The ANOVA table is also consistent with the main effect plot for ethnicity where both indicate that ethnicity may not be significant in determining wage. However, it is important to note that Hispanic is extremely low compared to the other ethnicities and if possible it may be prudent add more samples to include a higher number of Hispanic samples.
+
+***
+
+(4) Carry out a test to decide if the  effect of ethnicity is present on the full data set, at the significance level $\alpha=0.01$.
+
+$H_o: \alpha_i = (\alpha\beta)_{ij} = 0, \forall i, \forall j$  \
+$H_a: \alpha_i \neq 0 \; or \; (\alpha\beta)_{ij} \neq 0$ for at least 1 i or j
+
+
+```{r}
+full = t1
+reduced = aov(wage~occupation, data=Wage)
+
+#Get SSE of both full and reduced as well as their respective degrees of freedom
+sse_full = full$`Sum Sq`[5]
+df_full = full$Df[5]
+sse_red = sum((reduced$residuals)^2)
+df_red = reduced$df.residual
+
+#extract the total sample size, and length of factor a and b
+n = length(Wage$wage)
+a = length(unique(Wage$occupation))
+b = length(unique(Wage$ethnicity))
+#get the f critical value
+f = ((sse_red-sse_full)/(df_red-df_full))/(sse_full/df_full)
+#get the reference point
+test = qf(p=.01, df1=(a-1)*(b-1), df2=n-(a*b), lower.tail=FALSE)
+#check if the critical value is greater than the test statistics
+f > test
+
+```
+Since the critical value is less than the test statistics we fail to reject the null hypothesis. There is not enough evidence to say that ethnicity has a significant effect on wage when occupation is accounted for. However, it is important to note that even though this is true, looking at the interaction plot it may be a good idea to keep ethnicity because of the slight effect the interaction between occupation and wage has on the data. 
+	
+***	
+
+(5) For this part and the next, assume that the occupations have been selected randomly. Write down an appropriate ANOVA model that is additive in the factors and explain the terms in the model.
+
+
+\begin{align}
+
+  &Y_{ijk} = \mu_{..} + \alpha_i + \beta_j  + \epsilon_{ijk} \\ \\
+  &\text{Where } \alpha_i \text{ represents the fixed effect ethnicity has on wage } i=(1-3) \\
+  &\beta_j \text{ represents the random effect occupation has on wage } j=(1-3) \\
+  &\text{k represents an individual sample within the ij treatment group} \\
+
+\end{align}
+
+In addition we have the following constraints and assumptions for the model:
+
+\begin{align}
+
+  &\epsilon_{ijk} \overset{\mathrm{iid}}{\sim} N(0,1) \\
+  &\sum_{i=1}^{3}\alpha_i = 0 \\
+  &\beta_j \overset{\mathrm{iid}}{\sim} N(0,\sigma^2_\beta) \\
+  &{\beta_j}, {\epsilon_{ijk}} \text{ are mutually independent}
+
+\end{align}
+
+
+***
+
+(6) Assuming that the model in Part 5 is appropriate, obtain an estimate of the proportion of variability that is due to variability in occupation.
+
+```{r}
+lm = lmer(wage~ethnicity+(1|occupation), data=Wage)
+
+summary(lm)
+confint(lm)
+```
+
+The proportion of variability that is due to the variability of occupation is $6.205/27.965 \approx 0.222$. \
+
+*** 
+
+(7) 
+Consider a two-way ANOVA model with fixed effects 
+\begin{equation}\label{eqn:anova_two}
+Y_{i,j,k}=\mu + \alpha_i+ \beta_j+\epsilon_{i,j,k}, \  i =1,\ldots, a, j=1,\ldots, b, k=1,\ldots, n
+\end{equation}
+where $\{ \alpha_i\}$ satisfies that $\sum_{i}^a  \alpha_i=0$, $\{\beta_j\}$ satisfies that $\sum_{j}^b  \beta_j=0$,  and $\{\epsilon_{i,j,k}\}$ are i.i.d. $N(0,\sigma^2)$. Derive the least squares estimator from the above equation. 
+\n
+Under the assumptions provided above, the equation that should be minimized is $\sum_{i=1}^{a}\sum_{j=1}^{b}\sum_{k=1}^{n} (Y_{ijk} - \hat{Y_{ijk}})^2$ \n
+Where $\hat{Y_{ijk}} = \hat{\mu_{..}} + \hat{\alpha_i} + \hat{\beta_j}$
+
+\begin{gather}
+
+\sum_{i=1}^{a}\sum_{j=1}^{b}\sum_{k=1}^{n} (Y_{ijk} - \hat{Y_{ijk}})^2 = \sum_{i=1}^{a}\sum_{j=1}^{b}\sum_{k=1}^{n} (Y_{ijk} - \hat{\mu_{..}} - \hat{\alpha_i} - \hat{\beta_j})^2\\
+\text{To minimize the function, take the partial derivative with respect to both $\alpha$ and $\beta$} \\
+\frac{\partial}{\partial{\alpha}} = -2\sum_{j=1}^{b}\sum_{k=1}^{n}(Y_{ijk} - \hat{\mu_{..}} - \hat{\alpha_i} - \hat{\beta_j}) \\
+0 =  \sum_{j=1}^{b}\sum_{k=1}^{n}Y_{ijk} - nb\hat{\mu_{..}} - nb\hat{\alpha_i} - n\sum_{j=1}^{b}\hat{\beta_j} \\
+\text{Note under the assumption, $\sum_{j=1}^{b}\beta = 0$} \\
+\hat{\alpha} = \frac{\sum_{j=1}^{b}\sum_{k=1}^{n}Y_{ijk}}{nb} - \hat{\mu_{..}} \\
+\hat{\alpha_i} = \bar{Y_{i..}} - \hat{\mu_{..}} \; \text{Where $\bar{Y_{i..}} = \frac{\sum_{j=1}^{b}\sum_{k=1}^{n}Y_{ijk}}{nb}$}
+
+
+\frac{\partial}{\partial{\beta}} = -2\sum_{i=1}^{a}\sum_{k=1}^{n}(Y_{ijk} - \hat{\mu_{..}} - \hat{\alpha_i} - \hat{\beta_j}) \\
+0 =  \sum_{i=1}^{a}\sum_{k=1}^{n}Y_{ijk} - na\hat{\mu_{..}} - n\sum{i=1}^{a}\hat{\alpha_i} - na\hat{\beta_j} \\
+\text{Note under the assumption, $\sum_{i=1}^{a}\alpha = 0$} \\
+\hat{\beta_j} = \frac{\sum_{i=1}^{a}\sum_{k=1}^{n}Y_{ijk}}{ab} - \hat{\mu_{..}} \\
+\hat{\beta_j} = \bar{Y_{.j.}} - \hat{\mu_{..}} \; \text{Where $\bar{Y_{.j.}} = \frac{\sum_{i=1}^{a}\sum_{k=1}^{n}Y_{ijk}}{ab}$}
+
+\end{gather}
+***
+
+(8)
+Consider the following models 
+\begin{equation}\label{eqn:cellmeans}
+Y_{i,j,k}=\mu_{i,j}+\epsilon_{i,j,k}, \ k=1,\ldots, n, i =1,\ldots, a, j=1,\ldots, b, 
+\end{equation}
+and 
+\begin{equation}\label{eqn:reg}
+Y_{i,j,k}= \sum_{l=1}^a \sum_{m=1}^b \beta_{l,m} X_{l,m;i,j,k}+\epsilon_{i,j,k}, \ k=1,\ldots, n, i =1,\ldots, a, j=1,\ldots, b,
+\end{equation}
+where $\{\epsilon_{i,j,k}\}$ are i.i.d. $N(0,\sigma^2)$ and $X_{l,m;i,j,k}=1$ when $(l,m)=(i,j)$ and $X_{l,m;i,j,k}=0$ otherwise. Express $\{\beta_{l,m}: l=1,\ldots, a; m=1,\ldots, b\}$ using $\{\mu_{i,j}: i=1,\ldots, a; j=1,\ldots, b\}$.
+
+\begin{align}
+
+  &\sum_{l=1}^{a}\sum_{m=1}^{b}\beta_{l,m} X_{l,m;i,j,k} + \epsilon_{i,j,k} = \mu_{i,j} + \epsilon_{i,j,k} \\
+  &\text{Where k = 1,...,n  i=1,...,a  j=1,...,b} \\
+  &\sum_{l=1}^{a}\sum_{m=1}^{b}\beta_{l,m} X_{l,m;i,j,k} = \mu_{i,j} \\
+  &\text{Under the constraints, when } (l,m) = (i,j) \text{ } X_{l,m;i,j,k} = 1  \text{ } \text{and } 0 \text{ otherwise}\\
+  &\text{this means that: } \\
+  &\sum_{l=1}^{a}\sum_{m=1}^{b}\beta_{l,m} = \mu_{i,j} \text{ when } (l,m) = (i,j) \\
+  &\text{and } \\
+  &\sum_{l=1}^{a}\sum_{m=1}^{b}\beta_{l,m} = 0 \text{ otherwise}
+
+\end{align}
+***
+
+(9) 
+With some abuse of notation, we rewrite the regression model from Question 8 as 
+\begin{equation}\label{eqn:reg_new}
+Y= X\beta + \epsilon,
+\end{equation}
+where $Y$ is a $n_T$-dimensional vector, $X$ is an $n_T \times p$ matrix, $\beta$ is a $p$-dimensional vector, and $\{\epsilon\} \sim {\rm MVN}(0, \sigma^2 {\rm I})$, i.e., multivariate normal with covariance matrix $\sigma^2 {\rm I}$. Express the residual sum of squares and explained sum of squares in $Y$ and $X$, and then show that these two sum of squares are independent. 
+
+\begin{align}
+  
+  cov(SSTR,SSE) &= cov(Y^T(H-J)Y, Y^T(I-H)Y) \\
+  &= (H-J)cov(Y^TY, Y^TY)(I-H)\\
+  &= (H-J)var(Y^TY)(I-H) \\
+  \text{ Note that var(Y^TY) is a scalar value and can be moved around freely} \\
+  &= (H-J)(I-H)var(Y^TY) \\
+  &= (H - H - J + J)var(Y^TY)  \\
+  \text{ HJ = J because J is in the column space of H} \\
+  &= (0)cov(Y^TY) = 0
+
+\end{align}
+It is important to note that given our assumption, SSTR and SSE follow a normal distribution meaning that since their covariance is 0, SSTR and SSE are also independent.
+
+## Acknowledgement {-}
+
+## Session information {-}
+```{r}
+sessionInfo()
+```

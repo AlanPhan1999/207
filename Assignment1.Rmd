@@ -1,0 +1,236 @@
+---
+title: "STA 207: Assignment I"
+author: "Alan Phan 914902333"
+output: html_document
+---
+***
+
+**Instructions** You may adapt the code in the course materials or any sources (e.g., the Internet, classmates, friends). In fact, you can craft solutions for almost all questions from the course materials with minor modifications. However, you need to write up your own solutions and acknowledge all sources that you have cited in the Acknowledgement section. 
+
+Failing to acknowledge any non-original efforts will be counted as plagiarism. This incidence will be reported to the Student Judicial Affairs. 
+
+*** 
+
+
+A consulting firm is investigating the relationship between wages and occupation. The file `Wage.csv` contains three columns, which are 
+
+  - `wage`, the wage of the subject,
+  - `ethnicity`, the ethnicity of the subject,
+  - and `occupation`, the occupation of the subject. 
+  
+We will only use `wage` and `occupation` in this assignment. 
+
+
+```{r, echo=F, results=F,message=F}
+wage=read.csv('Wage.csv');
+library(tidyverse)
+attach(wage)
+```
+
+
+***
+
+(1) Write down a one-way ANOVA model for this data. For consistency, choose the letters from $\{Y,\alpha, \mu, \epsilon\}$ and use the factor-effect form. 
+
+$$Y_{ij} = \mu + \alpha_i + \epsilon_{ij}$$ \
+For this dataset the following variables are defined as:
+\being{split}
+  n_t &= 534 \\
+  r &= 6 \\
+  n_i = \text{number of samples in treatment i} i=1,2,...,r
+\end{split}
+
+```{r, echo=F, include=F}
+wage
+```
+
+
+	
+***
+
+(2)  Write down the least squares estimator of $\alpha_i$ for all $i$. Find the expectation and variance of these estimators in terms of $\{n_i\}$ and the parameters of the model. 
+
+$$\hat{\alpha_i} = \bar{Y_i} - \hat{mu}$$
+$$\begin{split}
+    E(\hat{\alpha_i}) &= E(\bar{Y_i} - \hat{\mu}) = \frac{1}{n_i}E(\sum_{k=1}^{n_i}Y_{ik}) - E(\hat{\mu}) \\
+     &= \mu_i - \mu \\
+     Var(\hat{\alpha_i}) &= Var(\bar{Y_i} - \hat{\mu}) = Var(\bar{Y_{i.}}(1-\frac{n_i}{n_T})) + Var(\sum_{j!=i}^{n_j}\frac{n_j}{n_T}\bar{Y_{j.}}) \\
+     &= (1-\frac{n_i}{n_j})^2Var(\frac{\sum_{j=1}^{n_i}Y_{ij}}{n_i}) + (n_T-n_i)Var(\frac{nj}{n_T}\frac{\sum_{k=1}^{n_j}Y_{jk}}{n_j}) \\
+     &= \frac{\sigma^2}{n_i} - \frac{2\sigma^2}{n_T} + \frac{n_i\sigma^2}{n_T^2} +\frac{\sigma^2}{n_T} - \frac{n_i\sigma^2}{n_T^2} \\
+     &= \frac{\sigma^2}{n_i} - \frac{\sigma^2}{n_T}
+\end{split}$$
+ 
+*** 
+
+(3) Obtain the main effects plots. Summarize your findings.
+```{r, echo=FALSE}
+violin <- ggplot(data = wage, aes(x=occupation, y=wage, fill=occupation)) + geom_violin() + geom_jitter(shape=16, position=position_jitter(0.2)) +
+  stat_summary(fun=mean, geom="point", size=2, color="red")
+violin
+```
+```{r, echo=FALSE}
+ggplot(data = wage, aes(x=occupation, y=wage, group = 1)) +
+  stat_summary(fun = mean, geom='point') +
+  stat_summary(fun = mean, geom='line')
+```
+
+
+Looking at the main effect plot, both management and technical occupations seems to have a much larger average wage compared to office, sales, and worker occupations. However, the violin plot shows that there is a large variation in addition to a right skew in management wages while technical is much more concentrated with a lesser right skew which may indicate that management wages may be high due to outliers or a small amount of influential data points. 
+
+*** 
+
+
+(4) Set up the ANOVA table using `R` for your model. Briefly explain this table.   
+```{r, echo=FALSE}
+wage_aov <- aov(wage$wage ~ wage$occupation)
+wage_aov
+```
+
+
+According to the anova table, total error of this data is $14076.7$. Using model proposed, $22\%$ of the total variance can be explained. The degrees of freedom for our model is 5 since we utilize 6 factors in the model with a total degree of freedom being 533. Given that the F value is 23.224 and the associated p-value given that f-statistics is close to 0 which indicates that there is evidence to support that there is a difference between the average wage of individuals with different occupations.
+	
+*** 
+
+
+(5) Test whether there is any association between `occupation` and `wage`. In particular, you need to (a) define the null and alternative hypotheses using the notation in Part 1, (b) conduct the test, and (c) explain your test result.
+
+$$H_o : \alpha_1 = \alpha_2 = \alpha_3 = \alpha_4 = \alpha_5 = \alpha_6 = 0\\
+  H_a : \text{At least one alpha is different}$$
+  
+```{r, echo=FALSE}
+anova(wage_aov)
+```
+Assuming the null hypothesis is true, we get an associated Fvalue of 23.224 which results in a p-value extremely close to zero. This means that if we assume the null hypothesis is true, the probability of having the data that we have is nearly zero. With an alpha of 0.05 we can reject the null hypothesis which indicates evidence towards an association between `occupation` and `wage`.
+  
+
+
+*** 
+
+(6) For the model fitted in Part 4, carry out the necessary diagnostics to check if the model assumptions given in Part 1 are valid. What are your findings?
+
+```{r, echo=FALSE}
+plot(wage_aov)
+```
+The Normal QQ plot indicates that the errors most likely do not follow a normal distribution. In addition, the residuals vs fitted values indicates a departure from equal variance. Therefore These assumptions are most likely not held and would need to be fixed or more data needs to be sampled before continuing to test. 
+
+*** 
+	
+(7) Assuming that the assumptions you made are true, can you statistically conclude if there is one occupation where the mean wage is the highest? Use the most appropriate method (use $\alpha=0.05$) to support your statement.
+
+```{r, echo=FALSE}
+tukey.test <- TukeyHSD(wage_aov)
+tukey.test
+```
+
+```{r, echo=FALSE}
+GGTukey<-function(Tukey){
+  A<-require("tidyverse")
+  if(A==TRUE){
+    library(tidyverse)
+  } else {
+    install.packages("tidyverse")
+    library(tidyverse)
+  }
+  B<-as.data.frame(Tukey[1])
+  colnames(B)[2:3]<-c("min",
+                      "max")
+  C<-data.frame(id=row.names(B),
+                min=B$min,
+                max=B$max)
+  D<-C%>%
+    ggplot(aes(id))+
+    geom_errorbar(aes(ymin=min,
+                     ymax=max),
+                 width = 0.2)+
+    geom_hline(yintercept=0,
+               color="red")+
+    labs(x=NULL)+
+    coord_flip()+
+    theme(text=element_text(family="TimesNewRoman"),
+            title=element_text(color="black",size=15),
+            axis.text = element_text(color="black",size=10),
+            axis.title = element_text(color="black",size=10),
+            panel.grid=element_line(color="grey75"),
+            axis.line=element_blank(),
+            plot.background=element_rect(fill="white",color="white"),
+            panel.background=element_rect(fill="white"),
+            panel.border = element_rect(colour = "black", fill = NA,size=0.59),
+            legend.key= element_rect(color="white",fill="white")
+          )
+  return(D)
+}
+```
+
+```{r, message=FALSE, warning=FALSE}
+GGTukey(tukey.test)
+```
+Looking at the plot provided, we cannot assume that there is a singular occupation that has the highest mean, however, based on the plot technical occupations does have higher average wage against 4 out of the 5 occupations in the data (only being similar to management). This may indicate that technical occupations may indeed have higher average wage but more data and further research would be required.
+
+
+*** 
+
+
+(8) Consider a one-way ANOVA model with fixed effects 
+\begin{equation}\label{eqn:anova}
+Y_{i,j}=\mu + \alpha_i+ \epsilon_{i,j}, \ j=1,\ldots, n_i, i =1,\ldots, r,
+\end{equation}
+where $\{ \alpha_i\}$ satisfies that $\sum_{i} n_i \alpha_i=0$ and $\{\epsilon_{i,j}\}$ are i.i.d. $N(0,\sigma^2)$.  For the above model, write down the loss function associated with least squares, denoted as $L_1(\mu,\alpha)$, and write down the log-likelihood, denoted as $L_2(\mu,\alpha)$.
+
+\begin{split}
+  \text{Given: } Y_{ij} = \mu + \alpha_i + \epsilon_{ij} \\
+  Y \text{~ } N(\mu+\alpha_i, \sigma^2) \\
+  \text{The Loss function is:} \\
+
+
+  L_1(\mu,\alpha_i) &= \sum_{i=1}^r\sum_{j=1}^{n_i}(Y_{ij}-\mu-\alpha_i)^2 \\
+
+  \text{The log-likelihood function is:} \\
+  Lik(Y_{ij}|\mu, \alpha_i) &=  \prod_{i=1}^r  \prod_{j=1}^{n_i} \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{ \sum_{i=1}^r\sum_{j=1}^{n_i}(Y_{ij}-\mu-\alpha_i)^2}{(2\sigma)^2}} \\
+  L_2(\mu,\alpha_i) &= log(\prod_{i=1}^r  \prod_{j=1}^{n_i} \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{ \sum_{i=1}^r\sum_{j=1}^{n_i}(Y_{ij}-\mu-\alpha_i)^2}{(2\sigma)^2}}) \\
+  &= -\frac{rn_i}{2}log(\sigma^2) - \frac{rn_i}{2}log(2\pi) - \frac{ \sum_{i=1}^r\sum_{j=1}^{n_i}(Y_{ij}-\mu-\alpha_i)^2}{(2\sigma)^2}
+
+\end{split}
+
+***
+
+(9) Find the maximum likelihood estimator of $\mu$ and $\alpha$ using the log-likelihood $L_2(\mu,\alpha)$ in Question 8. 
+
+\begin{split}
+\text{Given the log-likelihood function derived in (8):} \\
+\text{MLE of } \mu \text{:}\\
+\frac{\partial}{\partial\mu} &= \frac{1}{2\sigma^2}\sum_{i=1}^r\sum_{j=1}^{n_i}(Y_{ij} - \mu - \alpha_i) \\
+ 0 &= \sum_{i=1}^r\sum_{j=1}^{n_i}(Y_{ij} - \mu - \alpha_i) \\
+ 0 &= \sum_{i=1}^r\sum_{j=1}^{n_i}Y_{ij} - rn_i\mu - \sum_{i=1}^rn_i\alpha_i \\
+ \text{Note: } \sum_{i=1}^rn_i\alpha_i = 0 \text{ by our conditions} \\
+ \mu &= \frac{\sum_{i=1}^r\sum_{j=1}^{n_i}Y_{ij}}{rn_i} = \bar{Y} \\
+ \text{MLE of } \alpha_i \text{:} \\
+ \frac{\partial}{\partial\alpha_i} &= \frac{1}{2\sigma^2} \sum_{j=1}^{n_i}(Y_{ij} - \mu - \alpha_i) \\
+ 0 &= \sum_{j=1}^{n_i}Y_{ij} -n_i\bar{Y} - n_i\alpha_i \\
+ \alpha_i &= \frac{\sum_{j=1}^{n_i}y_{ij}}{n_i} - \bar{Y} \\
+ \text{Let: } \frac{\sum_{j=1}^{n_i}y_{ij}}{n_i} = \bar{Y_{i.}} \\
+ \alpha_i &= \bar{Y_{i.}} - \bar{Y}
+
+\end{split}
+
+## Acknowledgement {-}
+Thommas Phan \
+Sandeep Nair \
+https://rpubs.com/Edbbio/885399 (For the tukey graph) \
+## Session information {-}
+
+
+```{r}
+g1 <- ggplot(data=star_prop) + geom_bar(aes(x=star1, y=star_prop), stat='identity')
+g2 <- ggplot(data=school_prop) + geom_bar(aes(x=schoolid1, y=school_prop), stat='identity')
+g1 | g2
+```
+
+```{r}
+star_prop <- first_id %>% group_by(star1) %>% summarise(n=n()) %>% mutate(star_prop = n/sum(n))
+school_prop <- first_id %>% group_by(schoolid1) %>% summarise(n=n()) %>% mutate(school_prop = n/sum(n))
+star_prop
+```
+
+```{r, echo=FALSE}
+sessionInfo()
+```

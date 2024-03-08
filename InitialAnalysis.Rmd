@@ -1,0 +1,276 @@
+---
+title: "STAR Program Analysis"
+author: "Alan Phan"
+date: "2/16/2024"
+output:
+  html_document:
+    df_print: paged
+    number_sections: yes
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.pos = 'H')
+```
+
+***
+
+Note: 
+
+
+- **Remove instructions in your submission.**
+
+***
+
+# Abstract
+
+<span style='color:red'> 
+Not required in the initial analysis report.  
+</span>
+
+
+
+
+# Introduction
+
+
+<span style='color:red'> 
+Not required in the initial analysis report.  
+</span>
+
+ 
+# Background 
+
+
+<span style='color:red'> 
+Not required in the initial analysis report.  
+</span>
+
+
+[The brief](https://eric.ed.gov/?id=ED540485) mentions in previous section is also a good reference to read. You can find more by searching the key word "Project STAR" in, e.g.,  [Google scholar](https://scholar.google.com/scholar?hl=en&as_sdt=0%2C5&q=Project+STAR&btnG=).
+</span> 
+
+
+
+# Descriptive analysis 
+ 
+ 
+```{r, results=FALSE, warning=FALSE}
+library(tidyverse)
+library(AER)
+library(patchwork)
+library(gridExtra)
+data("STAR", package= "AER")
+```
+ 
+```{r}
+third <- STAR %>% select(1:3, ends_with("3"))
+first <- STAR %>% select(1:3, ends_with("1"))
+second <- STAR %>% select(1:3, ends_with("2"))
+kinder <- STAR %>% select(1:3, ends_with("k"))
+```
+ 
+```{r}
+kinder <- na.omit(kinder)
+first <- na.omit(first)
+second <- na.omit(second)
+third <- na.omit(third)
+```
+
+
+Based on a cursory look at the data and researching the topic, there are a few variables of interest I will delve deeper into. Firstly for ease of analysis, I will separate the data by grade (k, 1st, 2nd, 3rd) for easier comparisons. It is important to note that some students will appear in multiple of these splits due to them being part of the program for multiple years. Important varialbes I will be looking at is the math and reading scores, the student's ethnicity, lunch status, student gender, class size, school type,  teacher education.
+```{r}
+third_sub <- third %>% select('gender', 'ethnicity', 'star3', 'read3', 'math3', 'lunch3', 'school3', 'degree3')
+first_sub <- first %>% select('gender', 'ethnicity', 'star1', 'read1', 'math1', 'lunch1', 'school1', 'degree1')
+second_sub <- second %>% select('gender', 'ethnicity', 'star2', 'read2', 'math2', 'lunch2', 'school2', 'degree2')
+kinder_sub <- kinder %>% select('gender', 'ethnicity', 'stark', 'readk', 'mathk', 'lunchk', 'schoolk', 'degreek')
+```
+
+```{r, warning=FALSE}
+p1 <- ggplot(kinder_sub) + geom_bar(aes(gender, y=..prop.., group=1))
+p2 <- ggplot(kinder_sub) + geom_bar(aes(ethnicity, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p3 <- ggplot(kinder_sub) + geom_bar(aes(stark, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p4 <- ggplot(kinder_sub) + geom_bar(aes(schoolk, y=..prop.., group=1))  + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p5 <- ggplot(kinder_sub) + geom_histogram(aes(readk), bins=20) 
+p6 <- ggplot(kinder_sub) + geom_bar(aes(lunchk, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p7 <- ggplot(kinder_sub) + geom_histogram(aes(mathk), bins=20)
+p8 <- ggplot(kinder_sub) + geom_bar(aes(degreek, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
+
+((p1 | p2) / (p3 | p4) / (p6 | p8)) | (p5/p7)
+summary(kinder_sub)
+```
+Looking at the kindergarten classes, there are some interesting observations in the variables chosen. Firstly the gender ratio, lunch program ratio, and classroom size ratio are similar in all levels. In addition, most schools in this experiment were rural and the ethnicity makeup of the students fall heavily into Caucasian and African American. Teacher education tends to fall towards either a bachelor's or master's degree with very little specilization or phd. Both reading and math scores have a slight right skew but due to the skew being only very small, testing the means should not be affected very much.
+
+```{r, warning=FALSE}
+p1 <- ggplot(first_sub) + geom_bar(aes(gender, y=..prop.., group=1))
+p2 <- ggplot(first_sub) + geom_bar(aes(ethnicity, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p3 <- ggplot(first_sub) + geom_bar(aes(star1, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p4 <- ggplot(first_sub) + geom_bar(aes(school1, y=..prop.., group=1))  + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p5 <- ggplot(first_sub) + geom_histogram(aes(read1), bins=20)
+p6 <- ggplot(first_sub) + geom_bar(aes(lunch1, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p7 <- ggplot(first_sub) + geom_histogram(aes(math1), bins=20)
+p8 <- ggplot(first_sub) + geom_bar(aes(degree1, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
+
+((p1 | p2) / (p3 | p4) / (p6 | p8)) | (p5/p7)
+summary(first_sub)
+```
+Similarly to kindergarten, first graders have a similar distribution in all chosen variables. However, some differences include that reading scores are slightly more skewed and there are more suburban schools in the program compared to kindergarten.
+```{r, warning=FALSE}
+p1 <- ggplot(second_sub) + geom_bar(aes(gender, y=..prop.., group=1))
+p2 <- ggplot(second_sub) + geom_bar(aes(ethnicity, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p3 <- ggplot(second_sub) + geom_bar(aes(star2, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p4 <- ggplot(second_sub) + geom_bar(aes(school2, y=..prop.., group=1))  + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p5 <- ggplot(second_sub) + geom_histogram(aes(read2), bins=20)
+p6 <- ggplot(second_sub) + geom_bar(aes(lunch2, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p7 <- ggplot(second_sub) + geom_histogram(aes(math2), bins=20)
+
+((p1 | p2) / (p3 | p4) / (p6 | p8)) | (p5/p7)
+summary(second_sub)
+```
+The distribution of the variables in second grade is similar to the first graders. Interestingly, the reading scores for second grades is less skewed then either kindergarten and first grade and is closer to a symmetric distribution.
+```{r, warning=FALSE}
+p1 <- ggplot(third_sub) + geom_bar(aes(gender, y=..prop.., group=1))
+p2 <- ggplot(third_sub) + geom_bar(aes(ethnicity, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p3 <- ggplot(third_sub) + geom_bar(aes(star3, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p4 <- ggplot(third_sub) + geom_bar(aes(school3, y=..prop.., group=1))  + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p5 <- ggplot(third_sub) + geom_histogram(aes(read3), bins=20)
+p6 <- ggplot(third_sub) + geom_bar(aes(lunch3, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p7 <- ggplot(third_sub) + geom_histogram(aes(math3), bins=20)
+p8 <- ggplot(third_sub) + geom_bar(aes(degree3, y=..prop.., group=1)) + theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
+
+((p1 | p2) / (p3 | p4) / (p6 | p8)) | (p5/p7)
+summary(third_sub)
+```
+Interestingly there are no teachers with phds teaching 3rd grade. In addition, proportionally speaking, small classrooms was the second highest which differs in all other grades which had small classrooms as the lowest proportionally compared to the other class types.
+
+```{r, warning=FALSE}
+first_id <- first %>% 
+  group_by(experience1, tethnicity1, schoolid1, star1) %>%
+  summarise(average=mean(math1))
+```
+```{r}
+ggplot(data=first_id) + geom_histogram(aes(average), bins=23)
+```
+\
+There is a slight right skewed looking at the math scores for the first graders. However, given that it is only slightly right skewed and the overall structure has some symmetrical look, analysing the average test scores is most likely still appropriate.
+
+```{r}
+
+g1 <- ggplot(first_id, aes(x=star1, y=average, fill=star1)) + geom_violin() + stat_summary(fun=mean, geom="point", size=2, color="red")
+g2 <- ggplot(data = first_id, aes(x=star1, y=average, group = 1)) +
+  stat_summary(fun = mean, geom='point') +
+  stat_summary(fun = mean, geom='line')
+
+g1/g2
+```
+\
+The violin plot doesn't show a lot due to the large distribution. However, looking at the mean effect plot, it is shown that there is a correlation between a small classroom and the average math score of a student however more testing is required.
+```{r}
+g2 <- ggplot(data = first_id, aes(x=schoolid1, y=average, color = star1, group = 1)) +
+  stat_summary(fun = mean, geom='point') +
+  stat_summary(fun = mean, geom='line') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  
+
+g2
+```
+\
+The plot indicates that there may be a correlation between the average math score of a student and the school that they are learning from. This is important as the original goal of this study is to see the relationship between class size and student's learning abilities (measured via scores) so by taking into account the school that a student is from, it becomes clearer whether that relationship exists.
+
+
+
+# Inferential analysis 
+
+
+
+Under the chosen model $Y_{ijk} = \mu_{..} + \alpha_i + \beta_j + \epsilon_{ijk}$ and
+Given $\mu{ij}$ is the average math score given the $ith$ classroom size and $jth$ school indicator as defined above we can derive the following parameters.
+
+\begin{split}
+  \mu_{..} &= \sum_{i=1}^{3}\sum_{j=1}^{75}\mu_{ij}/(225) \\
+  \mu_{i.} &= \sum_{j=1}^{75}\mu_{ij}/75 \\
+  \mu_{.j} &= \sum_{i=1}^{3}\mu_{ij}/3 \\
+  \alpha_i &= \mu_{i.} - \mu{..} \\
+  \beta_j &= \mu_{.j} - \mu{..} \\
+
+\end{split}
+
+In addition, we have the following constraints:
+\begin{split}
+  \sum_{i=1}^{3}\alpha_i &= \sum_{i=1}^{75}\beta_i &= 0 \\
+\end{split}
+
+In addition the following is also assumed:
+\begin{split}
+  \epsilon_{ijk} \overset{\mathrm{iid}}{\sim} N(0, \sigma^2)
+\end{split}
+
+This model was chosen because I believe there shouldn't be much interaction between classroom size and the school. This is because the experiment required randomization of students in each classroom so any confounding effects will be capture by either $\alpha$ or $\beta$. In addition by averageing the math score by teacher, the effects of the teacher should also be accounted for leaving only the school and the classroom effects. 
+
+```{r}
+star_aov <- aov(average~schoolid1 + star1, data=first_id)
+star_aov$fitted.values
+```
+
+```{r}
+star_aov$coefficients[76:77]
+```
+Above are both the fitted values for all data points as well as the fitted coefficients for classroom size. Looking at it given that a small classroom size is much larger than regular+aide, it may indicate that class size would have an effect on scores. The school is ignored because it is not important to the overall goal of analysing whether classroom size has an effect on scores. It was added to the model in order to extract any possible confounding variable that the school itself may have on the overall experiment.
+
+
+$H_o: \alpha_1 = \alpha_2 = \alpha_3$
+$H_a:$ At least 1 $\alpha_i$ is different $\forall i$
+This will be tested at $\alpha = 0.05$
+
+```{r}
+star_aov2 <- aov(average~star1+schoolid1, data=first_id)
+summary(star_aov2)
+summary(star_aov)
+summary(aov(average~star1*schoolid1, data=first_id))
+```
+Since the p-value classroom size (star1) is less than 0.05, we can reject $H_o$ meaning that class size is significant in determining math scores. One major assumption used is that each cell is balanced (has the same number of observations). Looking at the the anova when order is changed the sum of square for the classroom size also changes which indicates imbalanced cell. However, given that both anova tables reject the same null hypothesis, it is safe to conclude that classroom size is significant regardless of how balanced the cells are. In addition, another assumption is that there is no interaction. This may also be valid given that an f-test on interaction is not significant meaning that the interaction term is 0 and therefore may possible be removed. 
+
+
+```{r}
+star_tukey <- TukeyHSD(star_aov, 'star1')
+plot(star_tukey)
+```
+
+
+# Sensitivity analysis 
+
+
+
+```{r}
+plot(star_aov)
+```
+\
+Looking at the diagnostic plots equal variance assumption seems to be valid. However there is a deviation in the normality assumption based on the qq-residual plot. There may be fixes to this such as a transformation which may be explored later.
+# Discussion 
+
+
+# Acknowledgement {-}
+
+<span style='color:blue'>
+By default, it is assumed that you have discussed this project with instructors. List any other people that you have discussed this project with. 
+</span>
+
+Thommas Phan \
+Wade Klein \
+Sandeep Nair
+
+# Reference {-}
+
+<span style='color:blue'>
+List any references you cited in the report. See [here](https://owl.purdue.edu/owl/research_and_citation/apa_style/apa_formatting_and_style_guide/in_text_citations_the_basics.html) for the APA format, as an example: 
+</span> 
+
+Imbens, G., & Rubin, D. (2015). Stratified Randomized Experiments. In Causal Inference for Statistics, Social, and Biomedical Sciences: An Introduction (pp. 187-218). Cambridge: Cambridge University Press. doi:10.1017/CBO9781139025751.010
+
+# Session info {-}
+
+<span style='color:blue'>
+Report information of your `R` session for reproducibility. 
+</span> 
+
+
+```{r}
+sessionInfo()
+```
