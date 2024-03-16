@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = FALSE)
 ```
 
 # Introduction
-For this project we are going to be using the STAR dataset which is an experiment conducted in the 1980s that tried to evaluate the effectiveness of class sizes on test scores. For this project we are going to be focusing on the effects of class size on first grade math scores. Specifically we want to see if there is any difference in first grade math scores across different class sizes and if so what class size is the most effect in increasing test scores.
+For this project we are going to be using the STAR dataset which is an experiment conducted in the 1980s that tried to evaluate the effectiveness of class sizes on test scores. The focus will primarily be on the effects of class size on first grade math scores. Specifically we want to see if there is any difference in first grade math scores across different class sizes and if so what class size is the most effect in increasing test scores.
 
 # Background and Motivation
 In 1985, Tennessee passed legislation giving funding to test a policy study to determine the effects of class size on student achievement in primary grades. The main questions asked during this study are:
@@ -36,6 +36,8 @@ In the initial analysis report, I found some issues with the model used. Firstly
 
 Additionally, the original model only looked at school id (due to it being a stratified design) and class size as factors. However, there may be other factors that should be taken into account, for example socioeconomic factors or ethnicity may play a role in addition to other factors such as teacher education etc. This should be further inspected.
 
+Another caveat was that the stratified experiment design may have been violated for students continued through the project from kindergarten to first grade. This is because, the experimenters did not see much effect between teacher and teacher + aide in kindergarten so they took half of the students who were moving to first grade and moved them between the two groups. The fact that the switch occurred may have effected the design for the students moving to first grade and beyond.
+
 Finally, there was a lot of missing data throughout the dataset and should be further analysed to see if patterns emerged in key factors that may be used in the final model.
 
 # EDA
@@ -55,7 +57,7 @@ df1 = read.spss("Data/STAR_K-3_Schools.sav", to.data.frame=TRUE)
 head(df)
 ```
 
-```{r}
+```{r, include=FALSE}
 missing <- df %>% 
   group_by(g1schid) %>%
   summarize(count = n_distinct(g1classtype)) %>%
@@ -63,6 +65,7 @@ missing <- df %>%
 ```
 
 
+### Missing Mechanism (Missing grade 1 classtype)
 
 ```{r}
 missing %>%
@@ -91,22 +94,7 @@ missing %>%
 
 Of these schools, 3 of the four were inner city schools and only 1 was a suburban school. None of the schools missing regular + aide treatment came from urban or rural schools.
 
-```{r, echo=FALSE}
-proportion_first_grade_free <- df %>%
-  inner_join(df1, by=c('g1schid' = 'schid')) %>%
-  group_by(SCHLURBN) %>%
-  summarize(student_count = n(),
-            prop = sum(g1freelunch=="FREE LUNCH", na.rm=TRUE)/n())
 
-
-ggplot(proportion_first_grade_free, aes(x=SCHLURBN, y=prop)) +
-  geom_bar(stat = 'identity', color='black') +
-  labs(x = "School Type", y = "Proportion of 1st grade students with Free Lunch", title = "Proportion of 1st Grade Students with Free Lunch by School") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-```
-
-When grouping by the school type, we can see that in first grade there were about 90% of children in Inner City schools who are on a free or reduced lunch plan while the next highest (urban) is around 44%. This is consistent with the background where inner city schools were determined based on the number of students  on a free lunch plan. Because of this, I believe it may be good to utilize school type as a measure of socioeconomic class. However, another potential factor that could be used to determine socioeconomic status is whether the student themselves has free lunch. One or the other or both may be a potential treatment that could be used when building an ANOVA model. If school type is used, it may help extract information on overall school funding while individual student lunch status may extract information on a student's socioeconomic status. 
 
 ```{r, echo=FALSE, warning=FALSE}
 suburban_free <- df1 %>%
@@ -124,6 +112,7 @@ ggplot(suburban_free, aes(x=as.factor(schid), y=G1FRLNCH, fill=highlight, na.rm 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 ```
+
 Looking at suburban schools, the one missing the aide class is not very different in terms of students with free lunches compared to other suburban schools. This means at least the proportion of students having free lunch (and by extension socioeconomic status) did not affect why the school was missing one of the treatment group.
 
 ```{r, echo=FALSE, warning=FALSE}
@@ -141,9 +130,10 @@ ggplot(innercity, aes(x=as.factor(schid), y=G1FRLNCH, fill=highlight, na.rm = TR
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 ```
+
 Similarly for Inner city schools, the proportion of students with free lunch is not very different when comparing those that were missing a treatment group and those that had all 3 treatment groups.
 
-```{r}
+```{r, warning=FALSE}
 strings_to_search <- c("G1NATVAM", "G1ASIAN", "G1BLACK", "G1HSPANC", "G1WHITE", "G1OTHR")
 
 # Group by school ID and calculate the total student population
@@ -172,7 +162,7 @@ Currently there are no discernible patterns on why these 4 schools were missing 
 
 
 
-For the final dataset, all information from 4th grade to highschool will be ignored. Even though it would be interesting the long term effects class size during early development had past the initial experiment the goal of this analysis is primarily on 1st grade math scores and therefore this information would most likely not be impactful towards this goal. In addition to this, I will be ignoring 3rd grade information as well. The reason for this is that I want to include kindergarten and second grade as they are directly before and after first grade so any effects that kindergarten had on first grade and first grade effects on second grade may be prudent to look at. Furthermore, for missing data I believe that kindergarten and second grade information most likely provides enough for imputation and analysis on why things may be missing.
+### Missing Mechanism (Missing Grade 1 math score)
 
 ```{r, include=FALSE}
 filtered_df <- df %>%
@@ -200,72 +190,35 @@ ggplot(data.frame(Response = names(count_data), Count = as.numeric(count_data)),
   theme_minimal()
 ```
 
-Of the students missing a math scores there was a small subset which were actually participating in the grade 1 star project and a larger subset who were not participating in grade 1. The small subset should be looked at to see if any patterns emerge and from the students who were not participating in grade 1, I will be subsetting to use only those participating in kindergarten and assume that they would have participated in the same class size if they were participating in grade 1.
 
+
+It is very difficult to see why these students were missing a grade 1 math score even though they were participating in the STAR project during grade 1. Looking at gender, it seems as though males were more likely to miss a grade 1 score but females also had a non significant amount of students missing as well meaning it is difficult to use gender as an underlying pattern. Similarly, although students living in rural areas are more likely to be missing a grade 1 score, other areas were missing a decent amount of grade 1 tests information proportionally speaking. This means, that similar to gender, where a student was living (and potentially by extension their socioeconomic status) is not an underlying factor to why the variable is missing. Another potential pattern was seeing if a student that did not have a reading score would also be missing their math score. Approximately half of the students who had a reading score were missing their math score meaning this was also a not good indicator for why students were missing a math score. Because of this it is difficult to determine a pattern of missingness and therefore I will be ignoring these students whow were missing a math score even though they were participating in the g1 STAR project.  This may have been due to different errors such as the students were absent or maybe there was an error while inputting the data (some students were missing gender or race for example). Either way because of the difficulty in determining a pattern given the current data, I will be removing the students who were missing a grade 1 math score who were also participating in the grade 1 STAR project. (Tables can be seen in the appendix below)
+
+Because there is not obvious missing mechanism, I will be utilizing a linear regression model to impute the missing data for these students missing grade 1 math scores while participating in project STAR. I will be utilizing their kindergarten and second grade reading and math scores to complete this task. In addition, should these missing students be missing their kindergarten and second grade scores, I will remove them from the dataset.
+
+### Imputation Method
 
 ```{r}
+
 na_filtered_yes <- na_filtered %>%
   filter(FLAGSG1 == "YES")
 
-ggplot(na_filtered_yes, aes(x = gender)) +
-  geom_bar(fill = "skyblue") +
-  labs(x = "Gender", y = "Count", title = "Counts of Male and Female") +
-  theme_minimal()
+add_dataset <- na_filtered_yes %>%
+  filter(FLAGSGK == "YES", FLAGSG2 == "YES")
 
-```
-
-```{r}
-ggplot(na_filtered_yes, aes(x=race)) +
-  geom_bar(fill="skyblue") +
-  labs(x="Gender", y="Count", title="Count of Gender")
-```
-
-```{r}
-ggplot(na_filtered_yes, aes(x=g1surban)) +
-  geom_bar(fill="skyblue") +
-  labs(x="Living Area Classification", y="Count", title="Student Living Area Classification")
-```
-
-```{r}
-a <- na_filtered_yes %>%
-  summarize(NA_count = sum(is.na(g1treadss)),
-            non_NA = sum(is.na(g1treadss)))
-
-count_data_long <- tidyr::pivot_longer(a, cols = c(NA_count, non_NA), names_to = "Category", values_to = "Count")
-
-# Create a bar plot
-ggplot(count_data_long, aes(x = Category, y = Count, fill = Category)) +
-  geom_bar(stat = "identity") +
-  labs(x = "Category", y = "Count", title = "Count of NA and non-NA Values") +
-  scale_fill_manual(values = c("skyblue", "orange"), labels = c("NA", "Non-NA")) +
-  theme_minimal()
-```
-
-Looking at the 3 graphs above, it is very difficult to see why these students were missing a grade 1 math score even though they were participating in the STAR project during grade 1. Looking at gender, it seems as though males were more likely to miss a grade 1 score but females also had a non significant amount of students missing as well meaning it is difficult to use gender as an underlying pattern. Similarly, although students living in rural areas are more likely to be missing a grade 1 score, other areas were missing a decent amount of grade 1 tests information proportionally speaking. This means, that similar to gender, where a student was living (and potentially by extension their socioeconomic status) is not an underlying factor to why the variable is missing. Another potential pattern was seeing if a student that did not have a reading score would also be missing their math score. However, upon further examination in the graph above, approximately half of the students who had a reading score were missing their math score meaning this was also a not good indicator for why students were missing a math score. Because of this it is difficult to determine a pattern of missingness and therefore I will be ignoring these students whow were missing a math score even though they were participating in the g1 STAR project.  This may have been due to different errors such as the students were absent or maybe there was an error while inputting the data (some students were missing gender or race for example). Either way because of the difficulty in determining a pattern given the current data, I will be removing the students who were missing a grade 1 math score who were also participating in the grade 1 STAR project.
+add_dataset <- add_dataset %>%
+  filter(!is.na(gktreadss), !is.na(gktmathss), !is.na(g2tmathss), !is.na(g2treadss))
 
 
-It is similarly difficult to determine why students who were participating in kindergarten project STAR were missing either kindergarten reading or math scores. Therefore, I will be removing students who were missing either of this information (assuming that they were also missing grade 1 math score). This will allow for a model to be made that will impute g1math scores based on their kindergarten reading and math scores. It is also important to note that only around 200 students of the 1800 students were removed when filtering for this criteria so hopefully not a lot of information was lost.
+add_dataset <- add_dataset %>%
+  filter(!is.na(g1freelunch)) %>%
+  filter(!is.na(g2freelunch))
 
-```{r}
-na_filtered_no <- na_filtered %>%
-  filter(FLAGSG1 == "NO")
+add_dataset <- add_dataset %>%
+  mutate(g1freelunch = ifelse(is.na(g1freelunch), as.character(g2freelunch), as.character(g1freelunch)))
 
-kinder_flag <- na_filtered_no %>%
-  filter(FLAGSGK == "YES")
+combined <- bind_rows(filtered_df1, add_dataset)
 
-kinder_flag <- kinder_flag %>%
-  mutate(g1classtype = ifelse(is.na(g1classtype), as.character(gkclasstype), g1classtype))
-
-kinder_flag <- kinder_flag %>%
-  filter(!is.na(gktreadss) & !is.na(gktmathss))
-
-kinder_flag <- kinder_flag %>%
-  mutate(g1schid = ifelse(is.na(g1schid), gkschid, g1schid))
-
-combined <- unique(rbind(filtered_df1, kinder_flag))
-
-combined <- combined %>%
-  mutate(g1schid = ifelse(is.na(g1schid), gkschid, g1schid))
 ```
 
 
@@ -273,22 +226,22 @@ combined <- combined %>%
 ```{r}
 
 both <- combined %>%
-  filter(!is.na(gktreadss) & !is.na(gktmathss) & !is.na(g1tmathss))
+  filter(!is.na(gktreadss),!is.na(gktmathss), !is.na(g1tmathss), !is.na(g2tmathss), !is.na(g2treadss))
 
-pred_model <- lm(g1tmathss ~ gktreadss + gktmathss, data=both)
-anova(pred_model)
+pred_model <- lm(g1tmathss ~ gktreadss + gktmathss + g2tmathss, g2treadss, data=both)
+pred_model
 
 ```
 
-This is a simple model used for imputation, it looks at a child's kindergarten math and reading scores to predict their first grade math and reading scores. Looking at the anova table, the model does well job in predicting grade 1 math scores. It is important to note that I did not use class size in this model because it would be counterintuitive to use class size to predict math scores and impute those values when I want to analyse the effects of class size has on a student's math score.
+This is a simple model used for imputation, it looks at a child's kindergarten and second grade math and reading scores to predict their first grade math and reading scores. Kindergarten and second grade scores will be used for imputation because it is believed that these scores will be good indicators for how well a student does for testing. Kindergarten is a good indicator for first grade as a good score in kindergarten most likely results in a good score for first grade. Similarly because first grade scores is most likely a good indicator on second grade scores, we can use the second grade scores as a indicator for first grade scores as well. Because of this, by utilizing both kindergarten and second grade a better idea of how well a student does in first grade can be formed which allows for a more accurate imputation. The model the coefficients for the linear regression model is shown above.
 
 
-```{r}
+```{r, include=FALSE}
 
 predictor_columns <- names(pred_model$model)[-1]
 
 
-df_subset <- kinder_flag[complete.cases(kinder_flag[, predictor_columns]), predictor_columns]
+df_subset <- add_dataset[complete.cases(add_dataset[, predictor_columns]), predictor_columns]
 
 predicted_values <- predict(pred_model, newdata = df_subset)
 
@@ -296,15 +249,16 @@ predicted_values <- predict(pred_model, newdata = df_subset)
 
 
 
-kinder_flag$g1tmathss[is.na(kinder_flag$g1tmathss)] <- predicted_values[is.na(kinder_flag$g1tmathss)]
+add_dataset$g1tmathss[is.na(add_dataset$g1tmathss)] <- predicted_values[is.na(add_dataset$g1tmathss)]
 
-kinder_flag$g1tmathss <- as.integer(kinder_flag$g1tmathss)
-
+add_dataset$g1tmathss <- as.integer(add_dataset$g1tmathss)
 
 ```
 
-```{r}
-combine <- unique(rbind(filtered_df1, kinder_flag))
+### Analysis on Student switching
+
+```{r, include=FALSE}
+combine <- unique(rbind(filtered_df1, add_dataset))
 
 combine_id <- combine %>%
   inner_join(df1, by=c("g1schid" = "schid"))
@@ -318,46 +272,39 @@ combine_id <- combine_id %>%
 combine_id$g1freelunch <- gsub("NON-FREE", "NON_FREE", combine_id$g1freelunch)
 
 combine_id$g1classtype <- gsub("\\+", "", combine_id$g1classtype)
+combine_id$gkclasstype <- gsub("\\+", "", combine_id$gkclasstype)
 
+combine_id <- combine_id %>%
+  mutate(switch = ifelse(gkclasstype == g1classtype, "NO", "YES"))
+
+combine_id <- combine_id %>%
+  mutate(switch = ifelse(is.na(gkclasstype), "NOT APPLICABLE", switch))
+
+combine_id %>%
+  select(gkclasstype, g1classtype, switch)
 
 ```
-
-In summary this is how the data was cleaned:
-
-1. removed 3->high school data
-2. retrieved all the students that had available data on their grade 1 math scores
-3. looked into the distribution of students that were missing grade 1 math scores
-  + removed students that were part of grade 1 project STAR but also missing their grade 1 math score
-4. included students that were participating in project STAR during kindergarten but were missing in grade 1
-  + imputed these students under the assumption that they would have stayed in the class type when transitioning to grade 1 assuming they were still in the project
-  + similarly imputed their grade 1 school id under the assumption their kindergarten school would have been their 1st grade school
-    - of these students removed those that were missing either their kindergarten reading or math scores
-5. imputed grade 1 free lunch status for missing elements based on the free lunch status when they were in kindergarten
-  + removed the remaining students that did not have any information on their free lunch status in either kindergarten and first grade (only around 30 students)
-6. created a linear model that used kindergarten reading and math scores to predict grade 1 math scores
-7. imputed the missing math scores using the model
-8. Joined this dataset with the k-3 school information to glean information on the schools the students were attending
 
 ```{r}
+combine_id %>%
+  filter(!is.na(gkclasstype), !is.na(g1classtype)) %>%
+  group_by(switch) %>%
+  summarize(prop = n()) %>%
+  mutate(prop = prop / sum(prop))
 
-student_count <- table(combine$g1schid)
-student_count_df <- as.data.frame(student_count)
-student_count_df$Var1 <- as.character(student_count_df$Var1)
-
-ggplot(student_count_df, aes(x=Var1, y=Freq)) +
-  geom_bar(stat="identity")+
-  labs(x="School ID", y="Number of Students", title= "Number of Students at a specific School") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 ```
 
-Looking at the graph above, the number of students at each school is not very equal. This observation should be taken into account when looking at an anova model to use.
+Looking at the table, of the students that participating in both kindergarten and first grade about 39% of them switched. Unfortunately due to time constraints I was not able to take into account the mechanism of switch. It includes all types of switch (small -> regular, regular -> small, etc). Because of that, it is difficult to extract which ones switched due to experimenter interference and which switched due to life happenstance.
 
-```{r, warning=FALSE}
-library(gplots)
+
+### Covariate Analysis
+
+```{r, warning=FALSE, include=FALSE}
+library(gplots, warn.conflicts = FALSE)
 ```
 
 
-```{r}
+```{r, echo=FALSE}
 ggplot(combine, aes(x=g1tmathss))+
   geom_density(fill='skyblue', color='black')+
   labs(x="math scores", y='density', title="kernel density of student's math score")
@@ -367,135 +314,207 @@ Looking at the kernel density plot, the math scores potentially follows an appro
 
 ```{r, warning=FALSE}
 
-par(mfrow = c(1,2))
+avg_math_scores_classtype <- combine_id %>%
+  group_by(g1classtype) %>%
+  summarise(avg_math_score = mean(g1tmathss, na.rm = TRUE),
+            ci_lower = mean(g1tmathss, na.rm = TRUE) - qt(0.975, length(g1tmathss) - 1) * sd(g1tmathss, na.rm = TRUE) / sqrt(length(g1tmathss)),
+            ci_upper = mean(g1tmathss, na.rm = TRUE) + qt(0.975, length(g1tmathss) - 1) * sd(g1tmathss, na.rm = TRUE) / sqrt(length(g1tmathss)))
 
-plotmeans(g1tmathss~g1classtype,data=combine_id,xlab="class size",ylab="average math scores",
-          main="Main  effect, class size",cex.lab=1.5) 
+
+ggplot(avg_math_scores_classtype, aes(x=g1classtype, y=avg_math_score)) +
+  geom_point() +
+  geom_errorbar(aes(ymin=ci_lower, ymax=ci_upper), width = 0.2)+
+  labs(x = "class type", y = "Average Math Score", title = "Average Math Score by Class Type") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 ```
 
-```{r, warning=FALSE}
 
-plotmeans(g1tmathss~g1freelunch, data=combine_id, xlab="School Location", ylab='Math Scores',
-          title='Main Effect Plot of Free lunch status on ')
+
+```{r, warning=FALSE, echo=FALSE}
+
+
+avg_math_scores_freelunch <- combine_id %>%
+  group_by(g1freelunch) %>%
+  summarise(avg_math_score = mean(g1tmathss, na.rm = TRUE),
+            ci_lower = mean(g1tmathss, na.rm = TRUE) - qt(0.975, length(g1tmathss) - 1) * sd(g1tmathss, na.rm = TRUE) / sqrt(length(g1tmathss)),
+            ci_upper = mean(g1tmathss, na.rm = TRUE) + qt(0.975, length(g1tmathss) - 1) * sd(g1tmathss, na.rm = TRUE) / sqrt(length(g1tmathss)))
+
+
+ggplot(avg_math_scores_freelunch, aes(x=g1freelunch, y=avg_math_score)) +
+  geom_point() +
+  geom_errorbar(aes(ymin=ci_lower, ymax=ci_upper), width = 0.2)+
+  labs(x = "Free Lunch Status", y = "Average Math Score", title = "Average Math Score by Free Lunch Status") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 
 ```
 
 ```{r}
-interaction.plot(combine_id$g1classtype, combine_id$g1freelunch, combine_id$g1tmathss
-                ,cex.lab=1.5,ylab="Average Math Score",xlab='Class Size')
+avg_math_scores_switch <- combine_id %>%
+  group_by(switch) %>%
+  summarise(avg_math_score = mean(g1tmathss, na.rm = TRUE),
+            ci_lower = mean(g1tmathss, na.rm = TRUE) - qt(0.975, length(g1tmathss) - 1) * sd(g1tmathss, na.rm = TRUE) / sqrt(length(g1tmathss)),
+            ci_upper = mean(g1tmathss, na.rm = TRUE) + qt(0.975, length(g1tmathss) - 1) * sd(g1tmathss, na.rm = TRUE) / sqrt(length(g1tmathss)))
+
+
+ggplot(avg_math_scores_switch, aes(x=switch, y=avg_math_score)) +
+  geom_point() +
+  geom_errorbar(aes(ymin=ci_lower, ymax=ci_upper), width = 0.2)+
+  labs(x = "Free Lunch Status", y = "Average Math Score", title = "Average Math Score by Free Lunch Status") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
 
-ASK ABOUT MAKING THIS CLEANER
-```{r, warning=FALSE}
-plotmeans(g1tmathss~g1schid, data=combine_id)
+```{r, echo=FALSE}
+interaction.plot(combine_id$switch, combine_id$g1freelunch, combine_id$g1tmathss
+                ,cex.lab=1.5,ylab="Average Math Score",xlab='SwitchStatus', trace.label = "Free Lunch Status")
+
 ```
+
+
+
+Main effect plot for class size vs average math score indicates that class size has an effect on average math score. Similarly the main effect plot for free lunch status vs average math score also shows that lunch status had an effect on math scores. One important note in the graph above is the main effect of switch status on math scores. There seems to be a large effect switch status has, however, upon a deeper look this effect is attributed to those who count as non applicable. These students were those who did not switch (which includes those in those who joined in first grade). Because of this there is most likely a lot of information that came from other covariates. Unfortunately due to time constraints, I was not able to find a way to create better flags to better capture the nuances of the information. However, since there is an effect I will keep switch status in the model. 
 
 # Model Creation
 
-Given my initial analysis of the data the current model proposed is $Y_{ijkl} = \mu_{...} + \alpha_i + \beta_j + \gamma_l + \epsilon_{ijkl}$ where:
+Given my initial analysis of the data the current model proposed is $Y_{ijkl} = \mu_{....} + \alpha_i + \beta_j + \gamma_k + \delta_l + \epsilon_{ijkl}$ where:
 
 \begin{align}
 
-\mu_{...} &= \text{ overall average math score for a student} \\
+\mu_{....} &= \text{ overall average math score for a student} \\
 \alpha_i &= \text{ the effect of the ith class size on a student's math score} \\
-\text{i = 1,...,3} \\
+\text{i = 1,2,3} \\
 \beta_j &= \text{ the effect of free lunch status on a student's math score} \\
 \text{j = 1,2} \\
-\gamma_l &= \text{ the effect of the lth school id on a student's math score} \\
+\gamma_k &= \text{ the effect of the kth switch status on student's math score} \\
+\text{k = 1,2,3} \\
+\delta_l &= \text{ the effect of the lth school id on a student's math score} \\
 \text{l = 1,...,75} \\
 
 \end{align}
 
-Similarly the model follows a few assumptions, the main one being: $\epsilon_{ijkl} \overset{\mathrm{iid}}{\sim} N(0, \sigma^2)$
+Since this data does not follow a normal distribution, we will the chi squared version of the model which does not assume normality
 
-Looking at the main effect plots for both class type and free lunch status, it is evident that an effect is most likely present for both treatments on grade 1 math scores. In addition, the interaction plot between the two variables are roughly parallel meaning that there is very little interaction effect between the two treatments. So the proposed model is just looking at the individual treatment effects while including the school id as it is normal convention for a stratified experiment.
+The main effect plots shown above provides evidence for why the first three covariates are chosen. School ID is chosen because it is general convention to include due to it being a stratified experiment. In addition, Interaction terms are ignored as the interaction plots do not show much effect between each other.
+
+
 
 ```{r}
-library(car)
 combine_id$g1schid <- as.factor(combine_id$g1schid)
 #Given that interaction seems to be significant it may be prudent to include it
-t1=aov(g1tmathss~g1freelunch + g1classtype + g1schid, data=combine_id)
-
-summary(t1)
-
+t1=aov(g1tmathss~g1freelunch + g1classtype + switch + g1schid, data=combine_id)
+anova(t1, test="Chisq")
 
 ```
 
-```{r}
-data.frame(Coefficients = unlist(t1$coefficients[2:4]))
+### School ID Patterns
+
+```{r, include=FALSE}
+avg_math_scores <- combine_id %>%
+  group_by(g1schid) %>%
+  summarise(avg_math_score = mean(g1tmathss, na.rm = TRUE),
+            ci_lower = mean(g1tmathss, na.rm = TRUE) - qt(0.975, length(g1tmathss) - 1) * sd(g1tmathss, na.rm = TRUE) / sqrt(length(g1tmathss)),
+            ci_upper = mean(g1tmathss, na.rm = TRUE) + qt(0.975, length(g1tmathss) - 1) * sd(g1tmathss, na.rm = TRUE) / sqrt(length(g1tmathss)),
+            urbn = unique(SCHLURBN),
+            frlnch = unique(G1FRLNCH))
+
+urban <- avg_math_scores %>%
+  filter(urbn == "URBAN") %>%
+  arrange(desc(frlnch))
+
+inner_city <- avg_math_scores %>%
+  filter(urbn == "INNER CITY") %>%
+  arrange(desc(frlnch))
+
+sub <- avg_math_scores %>%
+  filter(urbn == "SUBURBAN") %>%
+  arrange(desc(frlnch))
+
+rural <- avg_math_scores %>%
+  filter(urbn == "RURAL") %>%
+  arrange(desc(frlnch))
+
+full_graph_data <- urban %>%
+  bind_rows(sub, rural, inner_city)
 ```
 
-```{r}
-id_coef <- t1$coefficients[5:length(t1$coefficients)]
 
-data.frame(Coefficients = unlist(id_coef))
 
-ggplot(data.frame(Coefficients = unlist(id_coef)),aes(x="",y=Coefficients)) +
-  geom_violin(fill="skyblue", color='black', alpha=0.6)+
-  geom_point(aes(y=mean(Coefficients)), size=4, color='red') +
-  geom_jitter(width=0.05, height=0) +
-  labs(x=NULL, y="Coefficient Values", title="Violin plot of the Coefficient Values of schoolid")
+```{r, warning=FALSE, echo=FALSE}
+id_coef <- t1$coefficients[7:length(t1$coefficients)]
+
+coef_df <- data.frame(Coefficients = unlist(id_coef))
+
+coef_df <- rownames_to_column(coef_df, var = "index_column")
+
+coef_df <- coef_df %>%
+  rename(
+    schid = index_column
+  )
+
+coef_df$schid <- sub("^g1schid", "", coef_df$schid)
+
+full_graph_data_coef <- full_graph_data %>%
+  inner_join(coef_df, by=c("g1schid" = "schid"))
+
+full_graph_data_coef$g1schid <- factor(full_graph_data_coef$g1schid, levels = unique(full_graph_data_coef$g1schid))
+
+
+ggplot(full_graph_data_coef, aes(x=g1schid, y=Coefficients, color = urbn)) +
+  geom_point() +
+  labs(x = "School ID", y = "Average Math Score", title = "Coefficients") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
-The model proposed includes a student's grade 1 free lunch status as well as class type and school id. The model assumes no interaction which is similar to the model proposed in the initial analysis. The main differences is the inclusion of free lunch status, analyzing at the student level, and a deeper analysis on how the data was cleaned and which subjects were used for the model. The conclusions are similar to the initial analysis which concluded that both class type and schoolid had an effect on grade 1 math scores. The model in this case adds that along with class type and schoolid, a student's free lunch status is an important treatment factor as well. 
+
+```{r, warning=FALSE, echo=FALSE}
+
+full_graph_data$g1schid <- factor(full_graph_data$g1schid, levels = unique(full_graph_data$g1schid))
+
+
+ggplot(full_graph_data, aes(x=g1schid, y=avg_math_score, color = urbn)) +
+  geom_point() +
+  geom_errorbar(aes(ymin=ci_lower, ymax=ci_upper), width = 0.2)+
+  labs(x = "School ID", y = "Average Math Score", title = "Average Math Score by School ID") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+Interestingly graphing the coefficients that school ID has from the model using a similar mechanism as how I graphed the average math school by school ID shows similar patterns. Unfortunately due to time constraints I could not determine what the underlying mechanism for why the pattern is similar between the two. I believe there may be a hidden covariate or an interaction that I have not discovered which would explain this pattern. This is further supplemented why I attempted to model which included an interaction between free lunch status and school ID. Again, a similar pattern emerged in the coefficients which further supplements the idea of a hidden mechanism that requires further analysis to find.
+
+### Model Observations
+
+
+The model proposed includes a student's grade 1 free lunch status, switch status, class type and school id. The model assumes no interaction which is similar to the model proposed in the initial analysis. The main differences is the inclusion of free lunch status and switch status, analyzing at the student level, and a deeper analysis on how the data was cleaned and which subjects were used for the model. The conclusions are similar to the initial analysis which concluded that both class type and schoolid had an effect on grade 1 math scores. The model in this case concludes that along with class type and schoolid, a student's free lunch status and switch status are  important treatment factors as well. 
 
 # Sensitivity Analysis
 
 
 ```{r}
 
-plot(t1, which=1:2)
+plot(t1, which=1)
 ```
 
-The main assumptions that are being checked for the model is seeing if the error terms (residuals) follows a normal distribution and if the variance of the residuals is fairly constant. Looking at the residual vs fitted plot, the overall spread of the residuals does not fan out as the x-axis increases which indicates that the residuals most likely has a constant variance throughout. The QQ plot is a plot that graphs how consistently the residuals follows a normal distribution. Any deviation from the given line most likely indicates deviations from a normal distirubtion. In this case, there is a lot of deviation from the line around the 2-4 theoretical quantile area meaning that there is a bit of right skewness when compared to a normal distribution. This indicates that the normality assumption is most likely violeted but more tests may be performed to see if this conclusion is further supported.
+The main assumptions that are being checked for the model is seeing if the variance of the residuals is fairly constant. Looking at the residual vs fitted plot, the overall spread of the residuals does not fan out as the x-axis increases which indicates that the residuals most likely has a constant variance throughout. Since we are using a chi-squared model, the normal assumption is not necessary to look at. However, it is important to see if a non parametric test leads to the same conclusion which indicates that the model gives information on the data rather than the model chosen changing the conclusion
 
-
-```{r}
-
-residuals <- residuals(t1)
-
-
-# 2. Create a histogram of the residuals
-ggplot(data.frame(Residuals = residuals), aes(x = Residuals)) +
-  geom_histogram(aes(y=after_stat(density)),binwidth = 0.5, color = "skyblue", alpha = 0.7, bins=60) +
-  geom_density(color='red')+
-  labs(x = "Residuals", y = "relative frequency", title = "Histogram of Residuals")
-
-
-```
-
-Graphing the residuals through a histogram and a kde plot. It is evident that there is some slight bell shape which may indicate a normal like distribution. However, this alone does not support the fact that the residuals are following a normal distribution and given the qqplot should be taken with some skepticism.
-
-Instead a test for normality can be used to see whether a normal assumption is valid. Due to the limitations of a shapiro wilkes test (the package requires the sample to be between 3-5000 in length while currently the sample size is around 8000) I will be using an Anderson-Darling test. The Anderson-Darling test will test the following hypothesis:
-
-$H_o:$ The residuals follows a normal distribution.
-$H_a:$ The residuals is not normally distributed.
-
-```{r}
-library(nortest)
-ad.test(residuals)
-```
-
-Looking at the test, the p-value is very close to 0 meaning that at $\alpha=0.05$ the null hypothesis is rejected. Because of this as well as the normal qqplot observations, it is most likely safe to conclude that the residuals do not follow a normal distribution and therefore the normality assumption is not valid.
-
-Because of this conclusion, it is prudent to see if a non parametric analysis in which the normality assumption is not required also results in similar conclusions to our model.
 
 ```{r}
 combine_id$rank <- rank(combine_id$g1tmathss)
 
-summary(aov(rank~g1freelunch + g1classtype + g1schid, data=combine_id))
+summary(aov(rank~g1freelunch + g1classtype + switch + g1schid, data=combine_id))
 ```
 
-Above is a rank-test anova model. It provides similar conclusions that the original model makes that class type as well as free lunch are both important factors in determining grade 1 test scores. Because of this, even though the original model may not meet the normality assumption, it's conclusions is still most likely valid. 
+Above is a rank-test anova model. It provides similar conclusions that the original model makes that class type, switching status as well as free lunch are both important factors in determining grade 1 test scores. Because of this, the conclusion is due to the model rather than the underlying methods chosen. Therefore, the model proposed grants information about the underlying mechanism of the data. 
 
 Another problem that should be checked is the fact that the treatment groups do not have equal sample size. Below is a violin plot which shows the general distribution of number of students per treatment group. Looking at it, most groups fall between around 5-30 while only a few groups going past 40. Due to this unequal sample size, the type I test utilized which does a sequential algorithm may result in a different conclusion if the order of treatment groups is changed. It is important to check if this is the case and whether or not the conclusion changes due to this.
 
 ```{r, warning=FALSE}
+
+options(dplyr.summarise.inform = FALSE)
+
 df_num_students <- combine_id %>%
-  group_by(g1schid, g1freelunch, g1classtype) %>%
+  group_by(g1schid, g1freelunch, g1classtype, switch) %>%
   summarize(num_students = n())
 
 ggplot(data=df_num_students, aes(x="", y=num_students))+
@@ -504,16 +523,142 @@ ggplot(data=df_num_students, aes(x="", y=num_students))+
   geom_point(aes(y=mean(num_students)), color='red', size=4)
 ```
 
-Looking at the three tables below, the order of the treatment variables were changed to see if there were any changes to the conclusion as well as the change in their sum of squares. In this case, the conclusion for each of these does not change. Similarly, even though the mean squared treatment changes when order changes, it does not change significantly most likely indicating that even though the sample size is uneven the original model is valid to use. In addition, another question about the effect that the interaction between freelunch status and class type may have on test scores. The graph shown before showed that the interaction most likely did not have an effect. When proposing an anova
+Looking at the three tables below, the order of the treatment variables were changed to see if there were any changes to the conclusion. If the conclusion changes, then the model proposed is sensitive to the uneven sample size in treatment groups which would mean the model proposed may lead to incorrect conclusions. In this case, the conclusion for each of these does not change indicating that the model is most likely valid.
 
-```{r}
-summary(aov(g1tmathss~g1classtype + g1schid + g1freelunch, data=combine_id))
-summary(aov(g1tmathss~g1schid + g1classtype + g1freelunch, data=combine_id))
-summary(aov(g1tmathss~g1schid + g1freelunch + g1classtype, data=combine_id))
-summary(aov(g1tmathss~g1freelunch*g1classtype + g1schid, data=combine_id))
+```{r, echo=FALSE}
+summary(aov(g1tmathss~g1classtype + g1schid + g1freelunch + switch, data=combine_id))
+summary(aov(g1tmathss~g1schid + switch + g1classtype + g1freelunch, data=combine_id))
+summary(aov(g1tmathss~g1schid + g1freelunch + switch +  g1classtype, data=combine_id))
+```
+
+
+Another analysis is to see if another model which includes some kind of interaction may be better to use. To test this we can use a full vs reduced model check which has the following hypothesis:
+
+$H_o: Y_{ijkl} = \mu_{....} + \alpha_i + \beta_j + \gamma_k + \delta_l + \epsilon_{ijkl} \\$
+
+$H_a: Y_{ijkl} = \mu_{....} + \alpha_i + \beta_j + \gamma_k + \delta_l + (\beta\gamma)_{.jk.} + \epsilon_{ijkl}$
+
+Where the covariates are the same as proposed previously and $(\beta\gamma)_{jk}$ is the interaction term of between freelunch and switch status. 
+
+```{r, echo=FALSE}
+full = aov(g1tmathss~g1freelunch*switch + g1classtype + g1schid, data=combine_id)
+
+anova(t1, full, test='Chisq')
+```
+
+Testing a full vs reduced model to see if an interaction between free lunch and switch status indicates that the interaction provides significant information in the model. However, I believe that leaving the interaction out of the model is still valid and should be used because the main effect plot of the interaction indicates that it isn't as important as the test may make it appear.
+
+# Conclusion
+
+From the analysis done, the following conclusions are drawn:
+
+1. class type, free lunch status, switch status, and school id all have an effect on grade 1 math scores
+2. From current analysis, there is no missing mechanism behind why students were missing grade 1 math scores even if they were participating in project STAR. Similarly there is no missing mechanism for why the 4 schools were missing teacher + aide for grade 1
+3. The coefficients for school id from the model follow a similar pattern to the average math score when grouping by school id.
+4. There may be an underlying mechanism that yields the pattern shown for school id and average math scores but further analysis is required.
+
+
+
+
+# Appendix
+
+### Cleaning Summary
+In summary this is how the data was cleaned:
+
+1. removed 3->high school data
+2. retrieved all the students that had available data on their grade 1 math scores
+3. looked into the distribution of students that were missing grade 1 math scores
+  + removed students who were missing kindergarten or grade 2 test scores from these missing grade 1 math scores
+4. Used linear regression to impute the missing grade 1 math scores using kindergarten and grade 2 test scores
+5. imputed grade 1 free lunch status for missing elements based on the free lunch status when they were in kindergarten or second grade if kindergarten was missing
+  + removed the remaining students that did not have any information to impute on their free lunch status for first grade (missing kindergarten and second grade etc)
+6. Joined this dataset with the k-3 school information to glean information on the schools the students were attending
+
+
+
+### Tables
+
+```{r, echo=FALSE}
+proportion_first_grade_free <- df %>%
+  inner_join(df1, by=c('g1schid' = 'schid')) %>%
+  group_by(SCHLURBN) %>%
+  summarize(student_count = n(),
+            prop = sum(g1freelunch=="FREE LUNCH", na.rm=TRUE)/n())
+
+
+ggplot(proportion_first_grade_free, aes(x=SCHLURBN, y=prop)) +
+  geom_bar(stat = 'identity', color='black') +
+  labs(x = "School Type", y = "Proportion of 1st grade students with Free Lunch", title = "Proportion of 1st Grade Students with Free Lunch by School") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 ```
 
 
 
+```{r}
 
+ggplot(na_filtered_yes, aes(x = gender)) +
+  geom_bar(fill = "skyblue") +
+  labs(x = "Gender", y = "Count", title = "Counts of Male and Female") +
+  theme_minimal()
+
+```
+
+```{r}
+ggplot(na_filtered_yes, aes(x=race)) +
+  geom_bar(fill="skyblue") +
+  labs(x="Gender", y="Count", title="Count of Ethnicity")
+```
+
+```{r}
+ggplot(na_filtered_yes, aes(x=g1surban)) +
+  geom_bar(fill="skyblue") +
+  labs(x="Living Area Classification", y="Count", title="Student Living Area Classification")
+```
+
+
+```{r}
+a <- na_filtered_yes %>%
+  summarize(NA_count = sum(is.na(g1treadss)),
+            non_NA = sum(is.na(g1treadss)))
+
+count_data_long <- tidyr::pivot_longer(a, cols = c(NA_count, non_NA), names_to = "Category", values_to = "Count")
+
+# Create a bar plot
+ggplot(count_data_long, aes(x = Category, y = Count, fill = Category)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Category", y = "Count", title = "Count of student's who are also missing G1 reading scores") +
+  scale_fill_manual(values = c("skyblue", "orange"), labels = c("Missing", "Not Missing")) +
+  theme_minimal()
+```
+
+
+```{r}
+t2=aov(g1tmathss~g1classtype + switch + g1freelunch * g1schid, data=combine_id)
+id_coef <- t2$coefficients[7:81]
+
+coef_df <- data.frame(Coefficients = unlist(id_coef))
+
+coef_df <- rownames_to_column(coef_df, var = "index_column")
+
+coef_df <- coef_df %>%
+  rename(
+    schid = index_column
+  )
+
+coef_df$schid <- sub("^g1schid", "", coef_df$schid)
+
+full_graph_data_coef <- full_graph_data %>%
+  inner_join(coef_df, by=c("g1schid" = "schid"))
+
+full_graph_data_coef
+
+full_graph_data_coef$g1schid <- factor(full_graph_data_coef$g1schid, levels = unique(full_graph_data_coef$g1schid))
+
+
+ggplot(full_graph_data_coef, aes(x=g1schid, y=Coefficients, color = urbn)) +
+  geom_point() +
+  labs(x = "School ID", y = "Average Math Score", title = "Coefficients (Interaction Model)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
 
